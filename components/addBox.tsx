@@ -8,7 +8,7 @@ export interface TypeAddProps {
   handleDeadline: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAddTask: () => void;
 }
-export const AddBox = forwardRef<HTMLInputElement, TypeAddProps>(
+const AddBox = forwardRef<HTMLInputElement, TypeAddProps>(
   (props, ref) => {
     const {
       inputText,
@@ -44,3 +44,5 @@ export const AddBox = forwardRef<HTMLInputElement, TypeAddProps>(
     );
   }
 );
+AddBox.displayName = 'AddBox';
+export default AddBox;
