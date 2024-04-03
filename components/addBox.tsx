@@ -9,7 +9,7 @@ export interface TypeAddProps {
   handleAddTask: () => void;
 }
 export const AddBox = forwardRef<HTMLInputElement, TypeAddProps>(
-  (props, ref) => {
+  function AddBoxComponent(props, ref) {
     const {
       inputText,
       handleInput,

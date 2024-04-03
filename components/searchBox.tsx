@@ -6,7 +6,7 @@ export interface TypeSearchProps {
   handleShowAll: () => void;
 }
 export const SearchBox = forwardRef<HTMLInputElement, TypeSearchProps>(
-  (props, ref) => {
+  function SearchBoxComponent(props, ref) {
     const {
       inputSearchText,
       handleSearchInput,
