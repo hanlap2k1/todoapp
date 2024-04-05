@@ -5,97 +5,145 @@ import {
   deleteTask,
   updateTask,
   search,
-  selectListTaskClone,
+  setlist,
 } from "@/lib/features/listTaskSlice";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { ListTask } from "./listTask";
 import { AddBox } from "./addBox";
 import { SearchBox } from "./searchBox";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { selectTask } from "@/lib/features/taskSlice";
-import { v4 as uuidv4 } from "uuid";
 import FilterDate from "./filterDate";
 import dayjs from "dayjs";
 import FilterStatus from "./filterStatus";
 import Pagination from "./pagination";
 import FilterRecipient from "./filterRecipient";
-import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
-import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
-dayjs.extend(isSameOrBefore);
-dayjs.extend(isSameOrAfter);
+import {
+  changeContent,
+  changeDeadline,
+  changeId,
+  selectTask,
+} from "@/lib/features/taskSlice";
 
 export const INPROGRESS = 1;
 export const DONE = 2;
 export const CLOSED = 3;
 
 export const TodoApp = () => {
-  const [inputText, setInputText] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [idEdit, setIdEdit] = useState("");
   const [inputSearchText, setInputSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState(0);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [typeStatus, setTypeStatus] = useState(0);
-  const [recipientFilter, setRecipientFilter] = useState("0");
+  const [recipientFilter, setRecipientFilter] = useState("1");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(5);
+  const [total, setTotal] = useState(0);
 
   const listTask = useAppSelector(selectListTask);
-  const listTaskClone = useAppSelector(selectListTaskClone);
+  const task = useAppSelector(selectTask);
   const dispatch = useAppDispatch();
 
   const inputAddRef = useRef<HTMLInputElement>(null);
   //handle functions
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputText(e.target.value);
+    dispatch(changeContent(e.target.value));
   };
   const handleDeadline = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDeadline(e.target.value);
+    dispatch(changeDeadline(dayjs(e.target.value).unix()));
   };
-  const handleStatus = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+  const handleStatus = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    id: number
+  ) => {
     let status = e.target.checked ? DONE : INPROGRESS;
-    dispatch(updateTask({ idEdit: id, status: status }));
+    dispatch(changeId(id))
+    const res = await fetch("/api/listtask/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: id,
+        status: status,
+      }),
+    });
+    const data = await res.json();
+    dispatch(
+      updateTask({ idEdit: data.new_task.id, status: data.new_task.status })
+    );
+    dispatch(changeId(0))
   };
-  const handleAddTask = () => {
-    if (!idEdit) {
-      handleShowAll();
-      dispatch(
-        addTask({
-          id: uuidv4(),
-          content: inputText,
-          status: dayjs().isSameOrBefore(dayjs(deadline)) ? INPROGRESS : CLOSED,
-          startTime: new Date().toISOString(),
-          deadline: deadline,
-          recipient: "",
-        })
-      );
+  const handleAddTask = async () => {
+    if (!task.id) {
+      const res = await fetch("/api/listtask/add", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: task.content,
+          status: INPROGRESS,
+          startTime: dayjs().unix(),
+          deadline: task.deadline,
+          recipient: 0,
+        }),
+      });
+      getAPIListTask(page, pageSize, '');
+      handleShowAll()
     } else {
-      dispatch(updateTask({ idEdit, inputText, deadline }));
-      setIdEdit("");
+      const res = await fetch("/api/listtask/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: task.id,
+          content: task.content,
+          deadline: task.deadline,
+        }),
+      });
+      const data = await res.json();
+      
+      // dispatch(
+      //   updateTask({
+      //     idEdit: data.new_task.id,
+      //     inputText: data.new_task.content,
+      //     deadline: data.new_task.deadline,
+      //   })
+      // );
+      // setIdEdit(0);
+      dispatch(changeId(0));
     }
-    setInputText("");
-    setDeadline("");
+    dispatch(changeContent(""));
+    dispatch(changeDeadline(0));
     inputAddRef.current && inputAddRef.current.focus();
   };
-  const handleEdit = (id: string) => {
-    setIdEdit(id);
-    let temp = listTask.filter((value) => value.id === id)[0];
-    setInputText(temp.content);
-    setDeadline(temp.deadline);
+  const handleEdit = (id: number) => {
+    // setIdEdit(id);
+    dispatch(changeId(id));
+    let temp = listTask.filter((value) => value.id === Number(id))[0];
+    dispatch(changeContent(temp.content));
+    dispatch(changeDeadline(temp.deadline));
     inputAddRef.current && inputAddRef.current.focus();
   };
-  const handleDelete = (id: string) => {
-    dispatch(deleteTask(id));
+  const handleDelete = async (id: number) => {
+    dispatch(changeId(id))
+    const res = await fetch(`/api/listtask/delete/${id}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    // dispatch(deleteTask(data.task_deleted.id));
+    dispatch(changeId(0))
+    if(task.content) {
+      dispatch(changeContent(""));
+    } 
+    task.deadline && dispatch(changeDeadline(0));
   };
   const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputSearchText(e.target.value);
   };
   const handleSearchTask = () => {
-    let temp = listTaskClone.filter((value) =>
-      value.content.includes(inputSearchText)
-    );
-    dispatch(search(temp));
+    getAPIListTask(page, pageSize, inputSearchText);
   };
   const handleTypeFilter = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setTypeFilter(Number(e.target.value));
@@ -107,81 +155,100 @@ export const TodoApp = () => {
     setEndDate(null);
     setTypeStatus(0);
     setRecipientFilter("");
-    dispatch(search(listTaskClone));
+    getAPIListTask(page, pageSize, "");
   };
   const handleInputRangeDeadline = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates;
     setStartDate(start);
     setEndDate(end);
   };
-  const handleFilterDeadline = () => {
-    let temp = listTaskClone.filter(
-      (value) =>
-        dayjs(value.deadline).isSameOrAfter(dayjs(startDate)) &&
-        dayjs(value.deadline).isSameOrBefore(dayjs(endDate))
+  const handleFilter = async () => {
+    const res = await fetch(
+      `/api/listtask/filter?${typeFilter ? "typeFilter=" + typeFilter : ""}${
+        startDate ? "&startDate=" + dayjs(startDate).unix() : ""
+      }${endDate ? "&endDate=" + dayjs(endDate).unix() : ""}${
+        typeStatus ? "&status=" + typeStatus : ""
+      }${recipientFilter ? "&recipient=" + recipientFilter : ""}
+      `
     );
-    dispatch(search(temp));
+    const data = await res.json();
+    setTotal(data.total);
+    dispatch(setlist(data.listTask));
   };
   const handleChangeStatus = (e: ChangeEvent<HTMLInputElement>) => {
     setTypeStatus(Number(e.target.value));
   };
-  const handleFilterStatus = (typeStatus:number) => {
-    let temp = !typeStatus ?
-    listTaskClone :
-    listTaskClone.filter(
-      (value) => value.status === Number(typeStatus)
-    );
-    dispatch(search(temp));
-  }
   const handleChangeRecipient = (e: ChangeEvent<HTMLSelectElement>) => {
     setRecipientFilter(e.target.value);
   };
-  const handleFilterRecipient = (recipientFilter:string) => {
-    let temp = !Number(recipientFilter)
-      ? listTaskClone
-      : listTaskClone.filter((value) => value.recipient === recipientFilter);
-    dispatch(search(temp));
-  }
   const changePage = (page: number) => {
     setPage(page);
   };
   const handleChangePageSize = (e: ChangeEvent<HTMLSelectElement>) => {
     setPageSize(Number(e.target.value));
   };
-  useEffect(()=>{
-    typeStatus && handleFilterStatus(typeStatus)
-  },[typeStatus])
-  useEffect(()=>{
-    recipientFilter && handleFilterRecipient(recipientFilter)
-  },[recipientFilter])
-  useEffect(()=>{
-    switch (typeFilter) {
-      case 0:
-        handleSearchTask();
-        break;
-      case 1:
-        handleFilterDeadline();
-        break;
-      case 2:
-        handleFilterStatus(typeStatus);
-        break;
-      case 3:
-        handleFilterRecipient(recipientFilter);
-        break;
-      default:
-        break;
+  async function getAPIListTask(
+    page: number,
+    pageSize: number,
+    search?: string
+  ) {
+    const response = await fetch(
+      `/api/listtask?${page ? "page=" + page : ""}${
+        pageSize ? "&pageSize=" + pageSize : ""
+      }${search ? "&search=" + search : ""}`
+    );
+    const list = await response.json();
+    setTotal(list.total);
+    dispatch(setlist(list.listTask));
+  }
+  useEffect(() => {
+    getAPIListTask(page, pageSize, inputSearchText);
+  }, [page, pageSize]);
+  useEffect(() => {
+    if (!listTask.length && page > 0) {
+      setPage((preState) => preState - 1);
     }
-  },[listTaskClone])
+  }, [listTask.length]);
+  useEffect(() => {
+    if(typeStatus) {
+      handleFilter();
+    } 
+  }, [typeStatus]);
+  useEffect(() => {
+    if(Number(recipientFilter)) {
+      handleFilter();
+    }
+  }, [recipientFilter]);
+  useEffect(() => {
+    if(!task.id){     
+      switch (typeFilter) {
+        case 0:
+          handleSearchTask();
+          break;
+        case 1:
+          (startDate && endDate) ? handleFilter() : getAPIListTask(page, pageSize, '');
+          break;
+        case 2:
+          typeStatus ? handleFilter() : getAPIListTask(page, pageSize, '');
+          break;
+        case 3:
+          recipientFilter ? handleFilter() : getAPIListTask(page, pageSize, '');
+          break;
+        default:
+          break;
+      }
+    }
+  }, [task.id]);
   return (
     <div className="flex flex-col w-10/12 border-2 border-solid border-black rounded-xl p-10 gap-5">
       <h1 className="text-2xl">To Do List</h1>
       <AddBox
-        inputText={inputText}
+        inputText={task.content}
         handleInput={handleInput}
-        deadline={deadline}
+        deadline={task.deadline}
         handleDeadline={handleDeadline}
         handleAddTask={handleAddTask}
-        idEdit={idEdit}
+        idEdit={task.id}
         ref={inputAddRef}
       />
       <div className="flex gap-5">
@@ -207,7 +274,7 @@ export const TodoApp = () => {
             startDate={startDate}
             endDate={endDate}
             handleInputRangeDeadline={handleInputRangeDeadline}
-            handleFilterDeadline={handleFilterDeadline}
+            handleFilterDeadline={handleFilter}
           />
         ) : typeFilter === 2 ? (
           <FilterStatus
@@ -230,13 +297,13 @@ export const TodoApp = () => {
         handleEdit={handleEdit}
         handleStatus={handleStatus}
       />
-      {listTask.length > pageSize && (
+      {total > pageSize && (
         <Pagination
           page={page}
           pageSize={pageSize}
           changePage={changePage}
           handleChangePageSize={handleChangePageSize}
-          total={listTask.length}
+          total={total}
         />
       )}
     </div>

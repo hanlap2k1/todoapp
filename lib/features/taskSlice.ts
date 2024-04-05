@@ -3,18 +3,18 @@ import { TypeListTask } from "./listTaskSlice";
 import { RootState } from "../store";
 
 const initialState: TypeListTask = {
-  id: "",
+  id: 0,
   content: "",
   status: 0,
-  startTime: "",
-  deadline: "",
-  recipient: "",
+  startTime: 0,
+  deadline: 0,
+  recipient: 0,
 };
 export const taskSlice = createSlice({
   name: "task",
   initialState,
   reducers: {
-    changeId: (state, action: PayloadAction<string>) => {
+    changeId: (state, action: PayloadAction<number>) => {
       state.id = action.payload;
     },
     changeContent: (state, action: PayloadAction<string>) => {
@@ -23,10 +23,10 @@ export const taskSlice = createSlice({
     changeStatus: (state, action: PayloadAction<number>) => {
       state.status = action.payload;
     },
-    changeDeadline: (state, action: PayloadAction<string>) => {
+    changeDeadline: (state, action: PayloadAction<number>) => {
       state.deadline = action.payload;
     },
-    changeStartTime: (state, action: PayloadAction<string>) => {
+    changeStartTime: (state, action: PayloadAction<number>) => {
       state.startTime = action.payload;
     },
     reset: () => initialState,

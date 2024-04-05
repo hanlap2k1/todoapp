@@ -13,14 +13,25 @@ const Task = ({
   handleStatus,
 }: {
   value: TypeListTask;
-  handleDelete: (id: string) => void;
-  handleEdit: (id: string) => void;
-  handleStatus: (e: React.ChangeEvent<HTMLInputElement>, id: string) => void;
+  handleDelete: (id: number) => void;
+  handleEdit: (id: number) => void;
+  handleStatus: (e: React.ChangeEvent<HTMLInputElement>, id: number) => void;
 }) => {
   const dispatch = useAppDispatch();
   const listRecipient = useAppSelector(selectListRecipient);
-  const changeRecipient = (e: ChangeEvent<HTMLSelectElement>) => {
-    dispatch(updateTask({ idEdit: value.id, recipient: e.target.value }));
+  const changeRecipient = async(e: ChangeEvent<HTMLSelectElement>) => {
+    const res = await fetch("/api/listtask/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: value.id,
+        recipient: Number(e.target.value)
+      }),
+    });
+    const data = await res.json();
+    dispatch(updateTask({ idEdit: data.new_task.id, recipient: data.new_task.recipient }));
   };
   return (
     <div className="flex justify-between bg-slate-200 rounded-xl">
@@ -28,17 +39,17 @@ const Task = ({
         onChange={(e) => handleStatus(e, value.id)}
         className="ml-5 bg-transparent"
         type="checkbox"
-        disabled={!dayjs().isBefore(dayjs(value.deadline))}
+        disabled={!(dayjs().unix() <= value.deadline)}
         checked={value.status === DONE}
       />
       <p className="w-1/4 p-3 bg-transparent">{value.content}</p>
       <p className="p-3 bg-transparent flex items-center">
-        {dayjs(value.deadline).format("DD/MM/YYYY")}
+        {value.deadline ? dayjs.unix(value.deadline).format("DD/MM/YYYY") : ""}
       </p>
       <p className="w-1/5 p-3 bg-transparent justify-center flex items-center">
         {value.status === DONE
           ? "Hoàn thành"
-          : !dayjs().isBefore(dayjs(value.deadline))
+          : ! (dayjs().unix() < value.deadline)
           ? "Hết hạn"
           : "Đang thực hiện"}
       </p>
@@ -84,24 +95,21 @@ export const ListTask = ({
   page: number;
   pageSize: number;
   listTask: TypeListTask[];
-  handleDelete: (id: string) => void;
-  handleEdit: (id: string) => void;
-  handleStatus: (e: React.ChangeEvent<HTMLInputElement>, id: string) => void;
+  handleDelete: (id: number) => void;
+  handleEdit: (id: number) => void;
+  handleStatus: (e: React.ChangeEvent<HTMLInputElement>, id: number) => void;
 }) => {
   return (
     <div className="flex flex-col gap-5">
-      {listTask.map(
-        (value, index) =>
-          Math.floor(index / pageSize) === page && (
-            <Task
-              key={value.id}
-              value={value}
-              handleDelete={handleDelete}
-              handleEdit={handleEdit}
-              handleStatus={handleStatus}
-            />
-          )
-      )}
+      {listTask.map((value, index) => (
+        <Task
+          key={value.id}
+          value={value}
+          handleDelete={handleDelete}
+          handleEdit={handleEdit}
+          handleStatus={handleStatus}
+        />
+      ))}
     </div>
   );
 };
