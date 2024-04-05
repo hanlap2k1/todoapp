@@ -1,9 +1,10 @@
+import dayjs from "dayjs";
 import { forwardRef } from "react";
 
 export interface TypeAddProps {
   inputText: string;
-  deadline: string;
-  idEdit: string;
+  deadline: number;
+  idEdit: number;
   handleInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDeadline: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAddTask: () => void;
@@ -30,7 +31,7 @@ export const AddBox = forwardRef<HTMLInputElement, TypeAddProps>(
         />
         <input
           type="date"
-          value={deadline}
+          value={deadline ? dayjs.unix(deadline).format("YYYY-MM-DD") : ""}
           onInput={handleDeadline}
           className="px-5 border-2 border-solid border-black rounded-xl"
         />
@@ -38,7 +39,7 @@ export const AddBox = forwardRef<HTMLInputElement, TypeAddProps>(
           className="px-5 py-3 bg-green-500 rounded-xl text-white"
           onClick={handleAddTask}
         >
-          {idEdit === "" ? "Add task" : "Update task"}
+          {idEdit === 0 ? "Add task" : "Update task"}
         </button>
       </div>
     );
